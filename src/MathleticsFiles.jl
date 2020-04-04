@@ -43,32 +43,76 @@ end
 
 _INIT_ = false  # Bool
 
-function taroinit(init::Union{Bool,Nothing})
-    global _INIT_
-    if (isnothing(init) && !_INIT_) || init
+"""
+If `init` is true, runs Taro.init(); otherwise does nothing.
+"""
+function taroinit(init::Bool)
+    if init
+        global _INIT_
         Taro.init()
         _INIT_ = true
     end
 end
 
-function dataset(name::AbstractString; sourceurl::AbstractString=URL, init::Union{Bool,Nothing}=nothing)::DataFrame
-    lookup = Dict{String,Tuple{String, String}}(
-        "rushing" => ("firstdown.xls", "B4:E22"),
-        "passing" => ("firstdown.xls", "B24:E42")
-    )
-    args = lookup[name]
-    fp = filepath(args[1], sourceurl=sourceurl)
-    # Taro.readxl requres write access; copy the path to a temporary location with write access.
+"""
+Runs Taro.init() only if it hasn't already been run by this module.
+"""
+function taroinit(init::Nothing)
+    global _INIT_
+    if !_INIT_
+        taroinit(true)
+    end
+end
+
+
+function astemp(f::Function, path::AbstractString, mode::Integer)
     temppath = tempname()
-    df = try
-        cp(fp, temppath)
-        chmod(temppath, 0o664)
-        taroinit(init)
-        DataFrame(Taro.readxl(temppath, args[2:end]...))
+    return try
+        cp(path, temppath)
+        chmod(temppath, mode)
+        f(temppath)
     finally
         rm(temppath)
     end
-    return df
+end
+
+"""
+Retrieves a dataset by file name, sheetname, and range
+"""
+function dataset(filename::AbstractString, sheetname::AbstractString, range::AbstractString;
+                 sourceurl::AbstractString=URL, init::Union{Bool,Nothing}=nothing)::DataFrame
+    # Taro.readxl requres write access; copy the path to a temporary location with write access.
+    return astemp(filepath(filename, sourceurl=sourceurl), 0o664) do temppath
+        taroinit(init)
+        return DataFrame(Taro.readxl(temppath, sheetname, range))
+    end
+end
+
+
+"""
+Retrieves a dataset by file name and range
+"""
+function dataset(filename::AbstractString, range::AbstractString;
+                 sourceurl::AbstractString=URL, init::Union{Bool,Nothing}=nothing)::DataFrame
+    # Taro.readxl requres write access; copy the path to a temporary location with write access.
+    return astemp(filepath(filename, sourceurl=sourceurl), 0o664) do temppath
+        taroinit(init)
+        return DataFrame(Taro.readxl(temppath, range))
+    end
+end
+
+
+"""
+Retrieves a dataset (as a DataFrame) by alias.
+"""
+function dataset(alias::AbstractString; sourceurl::AbstractString=URL, init::Union{Bool,Nothing}=nothing)::DataFrame
+    lookup = Dict{String,Tuple{Vararg{String}}}(
+        "nfl_team_totals" => ("nflregression.xls", "data", "A5:M133"),
+        "rushing" => ("firstdown.xls", "B4:E22"),
+        "passing" => ("firstdown.xls", "B24:E42"),
+    )
+    args = lookup[alias]
+    return dataset(args...)
 end
 
 
