@@ -1,9 +1,9 @@
 module MathleticsFiles
 
-using DataFrames
-using Pkg.Artifacts
-using Taro
-using ZipFile
+using  DataFrames
+using  Pkg.Artifacts
+using  Taro
+using  ZipFile
 
 export dataset
 
@@ -26,19 +26,19 @@ end
 
 function filepath(filename::AbstractString; sourceurl::AbstractString=URL)
     artifactname = "mathletics_files"
-    dirhash = Artifacts.artifact_hash(artifactname, ARTIFACT_TOML)
+    artifacthash = Artifacts.artifact_hash(artifactname, ARTIFACT_TOML)
 
-    if isnothing(dirhash) || !Artifacts.artifact_exists(dirhash)
+    if isnothing(artifacthash) || !Artifacts.artifact_exists(artifacthash)
         @info "Generating MathleticsFiles artifact..."
-        dirhash = Artifacts.create_artifact() do artifactpath
+        artifacthash = Artifacts.create_artifact() do artifactpath
             zippath = download(sourceurl)
             extractall(zippath, artifactpath)
         end
-        Artifacts.bind_artifact!(ARTIFACT_TOML, artifactname, dirhash)
+        Artifacts.bind_artifact!(ARTIFACT_TOML, artifactname, artifacthash)
         @info "MathleticsFiles artifact generated."
     end
 
-    return joinpath(Artifacts.artifact_path(dirhash), filename)
+    return joinpath(Artifacts.artifact_path(artifacthash), filename)
 end
 
 _INIT_ = false  # Bool
@@ -58,8 +58,17 @@ function dataset(name::AbstractString; sourceurl::AbstractString=URL, init::Unio
     )
     args = lookup[name]
     fp = filepath(args[1], sourceurl=sourceurl)
-    taroinit(init)
-    return DataFrame(Taro.readxl(fp, args[2:end]...))
+    # Taro.readxl requres write access; copy the path to a temporary location with write access.
+    temppath = tempname()
+    df = try
+        cp(fp, temppath)
+        chmod(temppath, 0o664)
+        taroinit(init)
+        DataFrame(Taro.readxl(temppath, args[2:end]...))
+    finally
+        rm(temppath)
+    end
+    return df
 end
 
 
