@@ -47,4 +47,6 @@ jobs:
             ${{ runner.os }}-test-
             ${{ runner.os }}-
       - uses: julia-actions/julia-buildpkg@latest
-      - uses: julia-actions/julia-runtest@latest    
+      - uses: julia-actions/julia-runtest@latest
+        env:
+          JULIA_COPY_STACKS: 1
