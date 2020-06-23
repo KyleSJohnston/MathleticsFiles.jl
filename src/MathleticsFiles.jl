@@ -34,7 +34,7 @@ function filepath(filename::AbstractString; sourceurl::AbstractString=URL)
             zippath = download(sourceurl)
             extractall(zippath, artifactpath)
         end
-        Artifacts.bind_artifact!(ARTIFACT_TOML, artifactname, artifacthash)
+        Artifacts.bind_artifact!(ARTIFACT_TOML, artifactname, artifacthash, force=true)
         @info "MathleticsFiles artifact generated."
     end
 
