@@ -41,7 +41,7 @@ function download_artifact(; sourceurl::AbstractString=URL)
         @info "Generating MathleticsFiles artifact..."
         artifacthash = create_artifact() do artifactpath
             zippath = tempname()
-            Download.download(sourceurl, zippath)
+            Downloads.download(sourceurl, zippath)
             extractall(zippath, artifactpath)
         end
         bind_artifact!(ARTIFACT_TOML, artifactname, artifacthash, force=true)
