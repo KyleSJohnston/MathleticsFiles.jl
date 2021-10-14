@@ -1,4 +1,7 @@
 # MathleticsFiles.jl
+
+![](https://github.com/KyleSJohnston/MathleticsFiles.jl/workflows/UnitTests/badge.svg)
+
 Functions to access data from the Mathletics files.
 
 Example usage:
