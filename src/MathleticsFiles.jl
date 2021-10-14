@@ -16,6 +16,7 @@ const ARTIFACT_TOML = joinpath(@__DIR__, "..", "Artifacts.toml")
 function __init__()
     @info "Initializing Taro"
     Taro.init()
+    download_artifact()
 end
 
 
