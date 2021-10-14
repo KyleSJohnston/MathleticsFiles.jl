@@ -1,14 +1,24 @@
 module MathleticsFiles
 
 using  DataFrames
-using  Pkg.Artifacts
-using  Taro
-using  ZipFile
+using  Downloads: Downloads
+using  Logging
+using  Pkg.Artifacts: artifact_exists, artifact_hash, @artifact_str, bind_artifact!, create_artifact
+using  Taro: Taro
+using  ZipFile: ZipFile
 
 export dataset
 
 const URL = "https://excelwithwayne.com/wp-content/uploads/2019/05/MathleticsFiles.zip"
 const ARTIFACT_TOML = joinpath(@__DIR__, "..", "Artifacts.toml")
+
+
+function __init__()
+    @info "Initializing Taro"
+    Taro.init()
+    download_artifact()
+end
+
 
 function extractall(zippath::AbstractString, dirpath::AbstractString)
     @debug "Extracting all contents of $zippath to $dirpath."
@@ -24,43 +34,16 @@ function extractall(zippath::AbstractString, dirpath::AbstractString)
     end;
 end
 
-function filepath(filename::AbstractString; sourceurl::AbstractString=URL)
-    artifactname = "mathletics_files"
-    artifacthash = Artifacts.artifact_hash(artifactname, ARTIFACT_TOML)
+function download_artifact(; sourceurl::AbstractString=URL)
+    artifacthash = artifact_hash("mathletics_files", ARTIFACT_TOML)
 
-    if isnothing(artifacthash) || !Artifacts.artifact_exists(artifacthash)
+    if isnothing(artifacthash) || !artifact_exists(artifacthash)
         @info "Generating MathleticsFiles artifact..."
-        artifacthash = Artifacts.create_artifact() do artifactpath
-            zippath = download(sourceurl)
-            extractall(zippath, artifactpath)
+        artifacthash = create_artifact() do artifactpath
+            extractall(Downloads.download(sourceurl), artifactpath)
         end
-        Artifacts.bind_artifact!(ARTIFACT_TOML, artifactname, artifacthash, force=true)
+        bind_artifact!(ARTIFACT_TOML, "mathletics_files", artifacthash, force=true)
         @info "MathleticsFiles artifact generated."
-    end
-
-    return joinpath(Artifacts.artifact_path(artifacthash), filename)
-end
-
-_INIT_ = false  # Bool
-
-"""
-If `init` is true, runs Taro.init(); otherwise does nothing.
-"""
-function taroinit(init::Bool)
-    if init
-        global _INIT_
-        Taro.init()
-        _INIT_ = true
-    end
-end
-
-"""
-Runs Taro.init() only if it hasn't already been run by this module.
-"""
-function taroinit(init::Nothing)
-    global _INIT_
-    if !_INIT_
-        taroinit(true)
     end
 end
 
@@ -76,14 +59,18 @@ function astemp(f::Function, path::AbstractString, mode::Integer)
     end
 end
 
+
+function openartifact(f::Function, filename::AbstractString)
+    # Taro.readxl requres write access; copy the path to a temporary location with write access.
+    astemp(f, joinpath(artifact"mathletics_files", filename), 0o664)
+end
+
+
 """
 Retrieves a dataset by file name, sheetname, and range
 """
-function dataset(filename::AbstractString, sheetname::AbstractString, range::AbstractString;
-                 sourceurl::AbstractString=URL, init::Union{Bool,Nothing}=nothing)::DataFrame
-    # Taro.readxl requres write access; copy the path to a temporary location with write access.
-    return astemp(filepath(filename, sourceurl=sourceurl), 0o664) do temppath
-        taroinit(init)
+function dataset(filename::AbstractString, sheetname::AbstractString, range::AbstractString)::DataFrame
+    openartifact(filename) do temppath
         return DataFrame(Taro.readxl(temppath, sheetname, range))
     end
 end
@@ -92,11 +79,8 @@ end
 """
 Retrieves a dataset by file name and range
 """
-function dataset(filename::AbstractString, range::AbstractString;
-                 sourceurl::AbstractString=URL, init::Union{Bool,Nothing}=nothing)::DataFrame
-    # Taro.readxl requres write access; copy the path to a temporary location with write access.
-    return astemp(filepath(filename, sourceurl=sourceurl), 0o664) do temppath
-        taroinit(init)
+function dataset(filename::AbstractString, range::AbstractString)::DataFrame
+    openartifact(filename) do temppath
         return DataFrame(Taro.readxl(temppath, range))
     end
 end
@@ -105,7 +89,7 @@ end
 """
 Retrieves a dataset (as a DataFrame) by alias.
 """
-function dataset(alias::AbstractString; sourceurl::AbstractString=URL, init::Union{Bool,Nothing}=nothing)::DataFrame
+function dataset(alias::AbstractString)::DataFrame
     lookup = Dict{String,Tuple{Vararg{String}}}(
         "nfl_team_totals" => ("nflregression.xls", "data", "A5:M133"),
         "rushing" => ("firstdown.xls", "B4:E22"),
