@@ -40,11 +40,9 @@ function download_artifact(; sourceurl::AbstractString=URL)
     if isnothing(artifacthash) || !artifact_exists(artifacthash)
         @info "Generating MathleticsFiles artifact..."
         artifacthash = create_artifact() do artifactpath
-            zippath = tempname()
-            Downloads.download(sourceurl, zippath)
-            extractall(zippath, artifactpath)
+            extractall(Downloads.download(sourceurl), artifactpath)
         end
-        bind_artifact!(ARTIFACT_TOML, artifactname, artifacthash, force=true)
+        bind_artifact!(ARTIFACT_TOML, "mathletics_files", artifacthash, force=true)
         @info "MathleticsFiles artifact generated."
     end
 end
