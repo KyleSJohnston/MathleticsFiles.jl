@@ -16,7 +16,11 @@ const ARTIFACT_TOML = joinpath(@__DIR__, "..", "Artifacts.toml")
 function __init__()
     @info "Initializing Taro"
     Taro.init()
-    download_artifact()
+    try
+        download_artifact()
+    catch e
+        @warn "Unable to download requisite artifacts; functionality will be limited until you run MathleticsFiles.download_artifact()"
+    end
 end
 
 
